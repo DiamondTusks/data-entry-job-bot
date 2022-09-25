@@ -1,5 +1,11 @@
+import time
 import requests
 from bs4 import BeautifulSoup
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import ElementClickInterceptedException
 
 URL = "https://www.zillow.com/san-francisco-ca/rentals/?searchQueryState=%7B%22pagination%22%3A%7B%7D%2C%22mapBounds%22%3A%7B%22north%22%3A37.86885493321513%2C%22east%22%3A-122.31488314990234%2C%22south%22%3A37.68161041679897%2C%22west%22%3A-122.55177585009766%7D%2C%22mapZoom%22%3A12%2C%22isMapVisible%22%3Atrue%2C%22filterState%22%3A%7B%22price%22%3A%7B%22max%22%3A872627%7D%2C%22beds%22%3A%7B%22min%22%3A1%7D%2C%22fore%22%3A%7B%22value%22%3Afalse%7D%2C%22mp%22%3A%7B%22max%22%3A3000%7D%2C%22auc%22%3A%7B%22value%22%3Afalse%7D%2C%22nc%22%3A%7B%22value%22%3Afalse%7D%2C%22fr%22%3A%7B%22value%22%3Atrue%7D%2C%22fsbo%22%3A%7B%22value%22%3Afalse%7D%2C%22cmsn%22%3A%7B%22value%22%3Afalse%7D%2C%22fsba%22%3A%7B%22value%22%3Afalse%7D%7D%2C%22isListVisible%22%3Atrue%2C%22regionSelection%22%3A%5B%7B%22regionId%22%3A20330%2C%22regionType%22%3A6%7D%5D%7D"
 FORM = "https://docs.google.com/forms/d/e/1FAIpQLSfFT4KXah2jy-JpdMZ5gajwha_zpQhC-YdP_JWWHFf9iQP5Hg/viewform?usp=sf_link"
@@ -14,5 +20,38 @@ website_html = response.text
 
 soup = BeautifulSoup(website_html, "html.parser")
 print(soup.prettify())
-links = soup.find_all(name="a", class_="StyledPropertyCardDataArea-c11n-8-69-2__sc-yipmu-0")
-print(links)
+all_links_elements = soup.select(".list-card-top a")
+
+all_links = []
+for link in all_links_elements:
+    href = link["href"]
+    print(href)
+    if "http" not in href:
+        all_links.append(f"https://www.zillow.com{href}")
+    else:
+        all_links.append(href)
+
+all_address_elements = soup.select(".list-card-info address")
+all_addresses = [address.get_text().split(" | ")[-1] for address in all_address_elements]
+
+all_price_elements = soup.select(".list-card-details li")
+all_prices = [price.get_text().split("+")[0] for price in all_price_elements if "$" in price.text]
+
+chrome_driver_path = "/Users/me/Documents/development/chromedriver"
+service = Service(chrome_driver_path)
+driver = webdriver.Chrome(service=service)
+
+for n in range(len(all_links)):
+    driver.get(FORM)
+
+    time.sleep(2)
+    address = driver.find_element(By.XPATH, '//*[@id="mG61Hd"]/div[2]/div/div[2]/div[1]/div/div/div[2]/div/div[1]/div/div[1]/input')
+    price = driver.find_element(By.XPATH, '//*[@id="mG61Hd"]/div[2]/div/div[2]/div[2]/div/div/div[2]/div/div[1]/div/div[1]/input')
+    link = driver.find_element(By.XPATH, '//*[@id="mG61Hd"]/div[2]/div/div[2]/div[3]/div/div/div[2]/div/div[1]/div/div[1]/input')
+    submit_button = driver.find_element(By.XPATH, '//*[@id="mG61Hd"]/div[2]/div/div[3]/div[1]/div[1]/div')
+
+    address.send_keys(all_addresses[n])
+    price.send_keys(all_prices[n])
+    link.send_keys(all_links[n])
+    submit_button.click()
+
